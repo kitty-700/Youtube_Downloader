@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>632</width>
+    <width>706</width>
     <height>218</height>
    </rect>
   </property>
@@ -18,7 +18,7 @@
     <rect>
      <x>9</x>
      <y>9</y>
-     <width>611</width>
+     <width>681</width>
      <height>190</height>
     </rect>
    </property>
@@ -65,6 +65,19 @@
         </property>
         <property name="inputMethodHints">
          <set>Qt::ImhDigitsOnly</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cb_low_res_yn">
+        <property name="toolTip">
+         <string>빠름.. </string>
+        </property>
+        <property name="text">
+         <string>일반 화질</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

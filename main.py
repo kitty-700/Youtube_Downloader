@@ -29,6 +29,7 @@ class MainScreen(QMainWindow, form_class): # main_screen
         self.le_date        : QLineEdit
         self.le_res         : QLineEdit
         self.le_file_size   : QLineEdit
+        self.cb_low_res_yn  : QCheckBox
 
         self.qpb_download    : QProgressBar
 
@@ -42,7 +43,7 @@ class MainScreen(QMainWindow, form_class): # main_screen
         def download():
             clear()
             self.btn_download.setEnabled(False)
-            self.downloader = Downloader(url=self.le_yt_link.text())
+            self.downloader = Downloader(url=self.le_yt_link.text(), low_res_yn=self.cb_low_res_yn.isChecked())
             self.downloader.downloading.connect(self.downloading)
             self.downloader.checks .connect(self.checks)
             self.downloader.start()
@@ -80,16 +81,16 @@ class Downloader(QThread):
         print(percentage)
         self.downloading.emit(int(percentage))  # 방출
 
-    def __init__(self, url:str):
+    def __init__(self, url:str, low_res_yn:bool = True):
         super().__init__()
         self.num = 0             # 초깃값 설정
         self.url = url
+        self.low_res_yn = low_res_yn
 
     def run(self):
         print("Download Start")
         DOWNLOAD_FOLDER = "."
 
-        file_name = ""
         audio_file_name = "temp_audio.mp4"
         video_file_name = "temp_video.mp4"
 
@@ -119,14 +120,17 @@ class Downloader(QThread):
                     print("Audio 다운로드 실행 실패 [%s]" % (str(ex)))
                     break
 
-        def video_download(video_file_name):
+        def video_download(video_file_name:str, low_res_yn:bool):
             # 비디오 다운로드
             for i in range(1):
                 # STEP 1
                 print("Video 스트림 생성")
                 try:
                     yt = YouTube(self.url, on_progress_callback=self.progress_Check)
-                    stream = yt.streams.filter(adaptive=True, only_video=True).order_by('resolution').desc().first()
+                    if low_res_yn:
+                        stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+                    else:
+                        stream = yt.streams.filter(adaptive=True, only_video=True).order_by('resolution').desc().first()
                     print(stream)
                 except Exception as ex:
                     print("Video 스트림 생성 실패 [%s]" % (str(ex)))
@@ -177,11 +181,14 @@ class Downloader(QThread):
             except Exception as ex:
                 print(ex)
 
-        audio_download(audio_file_name)
-        file_name = video_download(video_file_name)
+        if self.low_res_yn:
+            video_download(video_file_name, self.low_res_yn)
+        else:
+            audio_download(audio_file_name)
+            file_name = video_download(video_file_name, self.low_res_yn)
+            self.downloading.emit(90)
+            combine(video_file_name, audio_file_name, file_name)
 
-        self.downloading.emit(90)
-        combine(video_file_name, audio_file_name, file_name)
         self.downloading.emit(100)
 
 # print("제목 : ", yt.title)
