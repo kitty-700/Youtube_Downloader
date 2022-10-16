@@ -147,7 +147,7 @@ class Downloader(QThread):
                 # STEP 3
                 print("Video 다운로드 실행")
                 try:
-                    stream.download(DOWNLOAD_FOLDER, filename=video_file_name)
+                    stream.download(DOWNLOAD_FOLDER, filename=None if low_res_yn else video_file_name)
                 except Exception as ex:
                     print("Video 다운로드 실행 실패 [%s]" % (str(ex)))
                     break
