@@ -188,6 +188,8 @@ class Downloader(QThread):
             file_name = video_download(video_file_name, self.low_res_yn)
             self.downloading.emit(90)
             combine(video_file_name, audio_file_name, file_name)
+            os.remove(audio_file_name)
+            os.remove(video_file_name)
 
         self.downloading.emit(100)
 
