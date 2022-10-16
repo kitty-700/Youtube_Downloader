@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import *
 from PyQt5 import uic
 from pytube import YouTube
 import ffmpeg
+import subprocess
+
 import re
 
 import os
@@ -86,93 +88,100 @@ class Downloader(QThread):
     def run(self):
         print("Download Start")
         DOWNLOAD_FOLDER = "."
-        global file_size
+
         file_name = ""
         audio_file_name = "temp_audio.mp4"
         video_file_name = "temp_video.mp4"
-        for i in range(1):
-            # STEP 1
-            print("유튜브 스트림 생성")
+
+        def audio_download(audio_file_name):
+            for i in range(1):
+                # STEP 1
+                print("Audio 스트림 생성")
+                try:
+                    yta = YouTube(self.url, on_progress_callback=self.progress_Check)
+                    streama = yta.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
+                    print(streama)
+                except Exception as ex:
+                    print("Audio 스트림 생성 실패 [%s]" % (str(ex)))
+                    break
+                # STEP 2
+                try:
+                    global file_size
+                    file_size = streama.filesize # 굳이 위젯에 emit() 안 뿌려주더라도, 이 부분이 없으면 [division by zero] 에러 발생
+                except Exception as ex:
+                    print("Audio error[%s]" % (str(ex)))
+                    break
+                # STEP 3
+                print("Audio 다운로드 실행")
+                try:
+                    streama.download(DOWNLOAD_FOLDER, filename=audio_file_name)
+                except Exception as ex:
+                    print("Audio 다운로드 실행 실패 [%s]" % (str(ex)))
+                    break
+
+        def video_download(video_file_name):
+            # 비디오 다운로드
+            for i in range(1):
+                # STEP 1
+                print("Video 스트림 생성")
+                try:
+                    yt = YouTube(self.url, on_progress_callback=self.progress_Check)
+                    stream = yt.streams.filter(adaptive=True, only_video=True).order_by('resolution').desc().first()
+                    print(stream)
+                except Exception as ex:
+                    print("Video 스트림 생성 실패 [%s]" % (str(ex)))
+                    break
+                # STEP 2
+                print("메타 데이터 출력")
+                try:
+                    global file_size
+                    file_size = stream.filesize
+                    self.checks.emit((yt.title, yt.author, str(yt.publish_date), "%s/%s" % (str(stream.resolution), str(stream.fps)),  str(file_size)))
+                except Exception as ex:
+                    print("메타 데이터 출력 실패 [%s]" % (str(ex)))
+                    break
+                # STEP 3
+                print("Video 다운로드 실행")
+                try:
+                    stream.download(DOWNLOAD_FOLDER, filename=video_file_name)
+                except Exception as ex:
+                    print("Video 다운로드 실행 실패 [%s]" % (str(ex)))
+                    break
+                return yt.title
+
+        def combine(video_file_name, audio_file_name):
             try:
-                yta = YouTube(self.url, on_progress_callback=self.progress_Check)
-                streama = yta.streams.filter(adaptive=True, file_extension='mp4', only_audio=True).order_by('abr').desc().first()
-                print(streama)
+                workdir = os.path.dirname(os.path.realpath(__file__))
+                print(workdir)
+                print(workdir + f'\\{video_file_name}')
+                print(workdir + f'\\{audio_file_name}')
+                result = subprocess.Popen(
+                    [
+                        'ffmpeg',
+                        '-y',
+                        '-i',
+                        workdir + f'\\{video_file_name}',
+                        '-i',
+                        workdir + f'\\{audio_file_name}',
+                        workdir + '\\' + file_name.replace('\\', '-') + '.mp4'
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                out, err = result.communicate()
+                exitcode = result.returncode
+                if exitcode != 0:
+                    print(exitcode, out.decode('utf8'), err.decode('utf8'))
+                else:
+                    print('Completed')
             except Exception as ex:
-                print("유튜브 스트림 생성 실패 [%s]" % (str(ex)))
-                break
-            # STEP 2
-            print("메타 데이터 출력")
-            try:
-                file_size = streama.filesize
-            except Exception as ex:
-                print("메타 데이터 출력 실패 [%s]" % (str(ex)))
-                break
-            # STEP 3
-            print("본 다운로드 실행")
-            try:
-                streama.download(DOWNLOAD_FOLDER, filename=audio_file_name)
-            except Exception as ex:
-                print("본 다운로드 실행 실패 [%s]" % (str(ex)))
-                break
-        file_name = yta.title
-        # 비디오 다운로드
-        for i in range(1):
-            # STEP 1
-            print("유튜브 스트림 생성")
-            try:
-                yt = YouTube(self.url, on_progress_callback=self.progress_Check)
-                stream = yt.streams.filter(adaptive=True, only_video=True).order_by('resolution').desc().first()
-                print(stream)
-            except Exception as ex:
-                print("유튜브 스트림 생성 실패 [%s]" % (str(ex)))
-                break
-            # STEP 2
-            print("메타 데이터 출력")
-            try:
-                file_size = stream.filesize
-                self.checks.emit((yt.title, yt.author, str(yt.publish_date), "%s/%s" % (str(stream.resolution), str(stream.fps)),  str(file_size)))
-            except Exception as ex:
-                print("메타 데이터 출력 실패 [%s]" % (str(ex)))
-                break
-            # STEP 3
-            print("본 다운로드 실행")
-            try:
-                stream.download(DOWNLOAD_FOLDER, filename=video_file_name)
-            except Exception as ex:
-                print("본 다운로드 실행 실패 [%s]" % (str(ex)))
-                break
+                print(ex)
+
+        audio_download(audio_file_name)
+        video_download(video_file_name)
 
         self.downloading.emit(90)
-        import subprocess
-
-        try:
-            workdir = os.path.dirname(os.path.realpath(__file__))
-            print(workdir)
-            print(workdir + f'\\{video_file_name}')
-            print(workdir + f'\\{audio_file_name}')
-            result = subprocess.Popen(
-                [
-                    'ffmpeg',
-                    '-y',
-                    '-i',
-                    workdir + f'\\{video_file_name}',
-                    '-i',
-                    workdir + f'\\{audio_file_name}',
-                    workdir + '\\' + file_name.replace('\\', '-') + '.mp4'
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            out, err = result.communicate()
-            exitcode = result.returncode
-            if exitcode != 0:
-                print(exitcode, out.decode('utf8'), err.decode('utf8'))
-            else:
-                print('Completed')
-        except Exception as ex:
-            print(ex)
-        print("Download Done")
-
+        combine(video_file_name, audio_file_name)
         self.downloading.emit(100)
 
 # print("제목 : ", yt.title)
