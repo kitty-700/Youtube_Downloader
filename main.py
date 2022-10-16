@@ -149,7 +149,7 @@ class Downloader(QThread):
                     break
                 return yt.title
 
-        def combine(video_file_name, audio_file_name):
+        def combine(video_file_name, audio_file_name, output_file_name):
             try:
                 workdir = os.path.dirname(os.path.realpath(__file__))
                 print(workdir)
@@ -163,7 +163,7 @@ class Downloader(QThread):
                         workdir + f'\\{video_file_name}',
                         '-i',
                         workdir + f'\\{audio_file_name}',
-                        workdir + '\\' + file_name.replace('\\', '-') + '.mp4'
+                        workdir + '\\' + output_file_name.replace('\\', '-') + '.mp4'
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -178,10 +178,10 @@ class Downloader(QThread):
                 print(ex)
 
         audio_download(audio_file_name)
-        video_download(video_file_name)
+        file_name = video_download(video_file_name)
 
         self.downloading.emit(90)
-        combine(video_file_name, audio_file_name)
+        combine(video_file_name, audio_file_name, file_name)
         self.downloading.emit(100)
 
 # print("제목 : ", yt.title)
